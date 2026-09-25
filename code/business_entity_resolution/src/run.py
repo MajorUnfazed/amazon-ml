@@ -99,7 +99,17 @@ def run_pipeline(
         print(f"\nValidator Output:\n{val_msg}")
         elapsed = time.time() - start_time
         print(f"Completed in {elapsed:.1f}s.")
-        return
+
+    # 1. Load Datasets
+    print("\n[Step 1/7] Loading source datasets and ground truth...")
+    train_s1, train_s2, train_s3, train_gt = load_dataset(data_dir, split="train")
+    test_s1, test_s2, test_s3, _ = load_dataset(data_dir, split="test")
+
+    train_partner = pd.concat([train_s2, train_s3], ignore_index=True)
+    test_partner = pd.concat([test_s2, test_s3], ignore_index=True)
+    gt_dict = parse_ground_truth_dict(train_gt)
+    print(f"  Loaded Train: {len(train_s1):,} S1, {len(train_partner):,} partners ({len(gt_dict):,} GT entries)")
+    print(f"  Loaded Test:  {len(test_s1):,} S1, {len(test_partner):,} partners")
 
     # 2. Normalize
     print("\n[Step 2/7] Normalizing entity names, addresses, and postcodes...")

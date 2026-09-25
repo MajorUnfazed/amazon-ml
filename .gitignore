@@ -31,9 +31,9 @@ ENV/
 Thumbs.db
 desktop.ini
 
-# Submissions and zips (keep output tsvs)
+# Submissions and large outputs
 *.zip
-!*_submission.zip
+output/*.tsv
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/

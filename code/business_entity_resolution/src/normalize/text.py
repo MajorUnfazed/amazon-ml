@@ -142,16 +142,28 @@ def extract_postal_code(address: str, country: Optional[str] = None) -> str:
 
     return ""
 
+# Direct dictionary mapping for fast token-based address abbreviations
+FAST_ABBR_MAP = {
+    "st": "street", "rd": "road", "ave": "avenue", "av": "avenue",
+    "blvd": "boulevard", "bvd": "boulevard", "dr": "drive", "ln": "lane",
+    "ct": "court", "pl": "place", "pkwy": "parkway", "hwy": "highway",
+    "apt": "apartment", "ste": "suite", "bldg": "building", "fl": "floor",
+    "ctr": "center", "sq": "square",
+    "mkt": "market", "opp": "opposite", "nr": "near", "extn": "extension",
+    "col": "colony", "soc": "society",
+    "bd": "boulevard", "bvd": "boulevard", "r": "rue", "pl": "place",
+    "chem": "chemin", "rte": "route", "all": "allee", "faub": "faubourg"
+}
+
 def clean_address(address: str) -> str:
     """Cleans address string and expands street and locality abbreviations."""
     cleaned = clean_string(address)
     if not cleaned:
         return ""
 
-    for pattern, repl in COMPILED_ABBRS:
-        cleaned = pattern.sub(repl, cleaned)
-
-    return RE_SPACES.sub(" ", cleaned).strip()
+    tokens = cleaned.split()
+    expanded = [FAST_ABBR_MAP.get(t, t) for t in tokens]
+    return " ".join(expanded)
 
 def extract_building_numbers(address: str) -> List[str]:
     """Extracts house/building/unit numbers."""
