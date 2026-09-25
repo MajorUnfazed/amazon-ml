@@ -1,0 +1,37 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Caches and artifacts
+artifacts/
+*.parquet
+*.pkl
+*.model
+
+# Datasets (Strictly NOT committed)
+dataset/
+data/
+
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Secrets and keys
+*.pem
+*.key
+*.env
+
+# Operating System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Submissions and zips (keep output tsvs)
+*.zip
+!*_submission.zip
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
