@@ -58,35 +58,47 @@ def run_pipeline(
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(config.artifacts_dir, exist_ok=True)
 
-    # 1. Load Data
-    print("\n[Step 1/7] Loading datasets...")
-    train_s1, train_s2, train_s3, train_gt = load_dataset(data_dir, split="train")
-    test_s1, test_s2, test_s3, _ = load_dataset(data_dir, split="test")
-
-    train_partner = pd.concat([train_s2, train_s3], ignore_index=True)
-    test_partner = pd.concat([test_s2, test_s3], ignore_index=True)
-
-    gt_dict = parse_ground_truth_dict(train_gt) if train_gt is not None else {}
-
-    print(f"  Train: S1={len(train_s1):,}, Partners(S2+S3)={len(train_partner):,}, GT Entities={len(gt_dict):,}")
-    print(f"  Test:  S1={len(test_s1):,}, Partners(S2+S3)={len(test_partner):,}")
-
-    profile = profile_dataset(train_s1, train_s2, train_s3, train_gt)
-    print(f"  Train Profile: Singleton Rate = {profile.get('singleton_rate', 0.0):.2%}, One-to-One holds = {profile.get('a1_one_to_one_holds', False)}")
-
-    # Handle Trivial Mode
+    # Fast path for trivial all-empty submission
     if mode == "trivial":
-        print("\n[Trivial Mode] Generating all-empty baseline predictions...")
-        empty_preds = {s1: set() for s1 in test_s1["entity_id"]}
+        print("\n[Trivial Mode] Generating fast all-empty submission for test set...")
+        test_s1_path = os.path.join(data_dir, "test", "test_source1.tsv")
+        if not os.path.exists(test_s1_path):
+            raise FileNotFoundError(f"Test source 1 file not found at {test_s1_path}")
+
         match_out = os.path.join(output_dir, "matching_results.tsv")
         cand_out = os.path.join(output_dir, "candidate_pairs.tsv")
 
-        write_tsv_submission(match_out, empty_preds, test_s1["entity_id"].tolist(), "source1_entity_id", "matched_entity_ids")
-        write_tsv_submission(cand_out, empty_preds, test_s1["entity_id"].tolist(), "source1_entity_id", "candidate_entity_ids")
+        print("  Extracting test Source 1 IDs and writing matching_results.tsv & candidate_pairs.tsv...")
+        s1_ids = []
+        with open(test_s1_path, "r", encoding="utf-8", errors="ignore") as f:
+            next(f) # skip header
+            for line in f:
+                parts = line.split("\t", 1)
+                if parts and parts[0].strip():
+                    s1_ids.append(parts[0].strip())
 
-        print("  Running validator...")
-        val_pass, val_msg = run_submission_validator(match_out, cand_out, os.path.join(data_dir, "test"))
-        print(f"  Validator output:\n{val_msg}")
+        s1_ids.sort()
+        print(f"  Writing {len(s1_ids):,} rows to matching_results.tsv...")
+        with open(match_out, "w", encoding="utf-8", newline="\n") as f_m:
+            f_m.write("source1_entity_id\tmatched_entity_ids\n")
+            for eid in s1_ids:
+                f_m.write(f"{eid}\t\n")
+
+        print(f"  Writing {len(s1_ids):,} rows to candidate_pairs.tsv...")
+        with open(cand_out, "w", encoding="utf-8", newline="\n") as f_c:
+            f_c.write("source1_entity_id\tcandidate_entity_ids\n")
+            for eid in s1_ids:
+                f_c.write(f"{eid}\t\n")
+
+        print("  Running official validator...")
+        val_pass, val_msg = run_submission_validator(
+            matching_tsv_path=match_out,
+            candidate_tsv_path=cand_file if 'cand_file' in locals() else cand_out,
+            test_dir=os.path.join(data_dir, "test")
+        )
+        print(f"\nValidator Output:\n{val_msg}")
+        elapsed = time.time() - start_time
+        print(f"Completed in {elapsed:.1f}s.")
         return
 
     # 2. Normalize

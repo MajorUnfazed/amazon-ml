@@ -12,6 +12,8 @@ artifacts/
 # Datasets (Strictly NOT committed)
 dataset/
 data/
+student_resource/
+__MACOSX/
 
 # Environments
 .venv/
