@@ -22,14 +22,6 @@ def resolve_one_to_one(
     # Sort descending by probability
     sorted_df = scored_pairs_df.sort_values(by=prob_col, ascending=False).copy()
 
-    # Find the maximum probability for each partner
+    # Find the maximum probability for each partner (already sorted descending)
     best_claims = sorted_df.drop_duplicates(subset=["partner_entity_id"], keep="first")
-    best_claim_keys = set(zip(best_claims["source1_entity_id"], best_claims["partner_entity_id"]))
-
-    # Filter: retain only the winning (S1, partner) pairs
-    is_winner = [
-        (s1, p) in best_claim_keys
-        for s1, p in zip(sorted_df["source1_entity_id"], sorted_df["partner_entity_id"])
-    ]
-
-    return sorted_df[is_winner].reset_index(drop=True)
+    return best_claims.reset_index(drop=True)
