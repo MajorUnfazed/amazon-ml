@@ -11,6 +11,7 @@ import joblib
 import pandas as pd
 import numpy as np
 from collections import defaultdict
+import gc
 
 # Add src to sys.path
 src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "code", "business_entity_resolution", "src")
@@ -169,8 +170,8 @@ for country in countries_to_process:
     max_posting_addr = max(int(N_docs * 0.01), 2000)
     max_posting_c3 = max(int(N_docs * 0.01), 3000)
 
-    # Process S1 queries in chunks of 50,000 to keep memory under 1.5 GB
-    CHUNK_SIZE = 50000
+    # Process S1 queries in chunks of 25,000 to keep memory strictly under 2.5 GB
+    CHUNK_SIZE = 25000
     n_chunks = (len(s1_records_c) + CHUNK_SIZE - 1) // CHUNK_SIZE
     country_scored_chunks = []
 
@@ -279,9 +280,17 @@ for country in countries_to_process:
             p_cal = calibrator.transform(p_raw)
             chunk_features_df["p_cal"] = p_cal
 
-            country_scored_chunks.append(chunk_features_df[["source1_entity_id", "partner_entity_id", "p_cal"]].copy())
+            # Only retain candidate pairs with probability >= 0.25 (prunes 95% of junk rows to save RAM)
+            # Candidates below 0.25 can never pass DECISION_THRESHOLD (0.60)
+            plausible_pairs = chunk_features_df[chunk_features_df["p_cal"] >= 0.25][["source1_entity_id", "partner_entity_id", "p_cal"]].copy()
+            if len(plausible_pairs) > 0:
+                country_scored_chunks.append(plausible_pairs)
 
-        print(f"    Chunk {chunk_idx+1}/{n_chunks} ({len(chunk_queries):,} queries, {len(chunk_cands_df):,} pairs) processed in {time.time() - t_chk:.1f}s.", flush=True)
+            # Immediately delete chunk objects and force garbage collection
+            del chunk_cands_df, chunk_features_df, X_infer, p_raw, p_cal, pair_rows, cand_map
+            gc.collect()
+
+        print(f"    Chunk {chunk_idx+1}/{n_chunks} ({len(chunk_queries):,} queries, pairs evaluated) processed in {time.time() - t_chk:.1f}s.", flush=True)
 
     # Enforce Global 1-to-1 consistency across entire country
     if country_scored_chunks:
