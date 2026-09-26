@@ -3,8 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Caches and artifacts
-artifacts/
+# Caches and large temporary files
+# artifacts/ (un-ignored: contains 2.3 MB trained model weights needed for inference)
 *.parquet
 *.pkl
 *.model
