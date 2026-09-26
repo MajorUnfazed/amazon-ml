@@ -281,9 +281,9 @@ def main():
 
     start_time = time.time()
     total_cpus = mp.cpu_count()
-    # Allocate 40-44 workers, leaving 4 vCPUs for Linux kernel & coordinator
-    n_workers = max(1, min(total_cpus - 4, 44))
-    print(f"Allocating {n_workers} parallel worker processes across {total_cpus} vCPUs...", flush=True)
+    # Allocate 32-36 dedicated workers, leaving 12-16 vCPUs for Linux kernel, terminal responsiveness & coordinator
+    n_workers = max(1, min(total_cpus - 12, 36))
+    print(f"Allocating {n_workers} dedicated worker processes across {total_cpus} vCPUs...", flush=True)
 
     # Use Linux fork for zero-copy shared memory
     if hasattr(os, "fork"):
@@ -448,6 +448,31 @@ def main():
         max_posting_c3 = max(int(N_docs * 0.01), 4000)
         max_posting_sx = max(int(N_docs * 0.01), 3000)
 
+        # Set global variables directly in parent process for true Linux zero-copy Copy-On-Write
+        _G_PARTNER_LOOKUP = partner_lookup
+        _G_SLUG_INDEX = slug_index
+        _G_SORTED_SLUG_INDEX = sorted_slug_index
+        _G_ADDR_KEY_INDEX = addr_key_index
+        _G_PHONE_INDEX = phone_index
+        _G_SOUNDEX_INDEX = soundex_index
+        _G_ACRONYM_INDEX = acronym_index
+        _G_WORD_INDEX = word_index
+        _G_CHAR3_INDEX = char3_index
+        _G_POSTAL_INDEX = postal_index
+        _G_WORD_IDF = word_idf
+        _G_CHAR3_IDF = char3_idf
+        _G_MAX_POST_WORD = max_posting_word
+        _G_MAX_POST_ADDR = max_posting_addr
+        _G_MAX_POST_C3 = max_posting_c3
+        _G_MAX_POST_SX = max_posting_sx
+        _G_FEATURE_BUILDER = fb
+        # Explicitly lock LightGBM to 1 thread per worker process to prevent thread thrashing
+        model.set_params(n_jobs=1)
+        _G_MODEL = model
+        _G_CALIBRATOR = calibrator
+        _G_FEATURE_COLS = feature_cols
+        _G_COUNTRY = country
+
         # Freeze garbage collector so Linux fork shared memory stays clean and zero-copy
         gc.collect()
         if hasattr(gc, "freeze"):
@@ -462,17 +487,8 @@ def main():
         t_par = time.time()
         all_scored_pairs = []
 
-        # Execute chunks in parallel
-        with ProcessPoolExecutor(
-            max_workers=n_workers,
-            initializer=init_worker_state,
-            initargs=(
-                partner_lookup, slug_index, sorted_slug_index, addr_key_index, phone_index,
-                soundex_index, acronym_index, word_index, char3_index, postal_index,
-                word_idf, char3_idf, max_posting_word, max_posting_addr, max_posting_c3, max_posting_sx,
-                fb, model, calibrator, feature_cols, country
-            )
-        ) as executor:
+        # Execute chunks in parallel with ZERO IPC serialization (pure Linux fork COW memory)
+        with ProcessPoolExecutor(max_workers=n_workers) as executor:
             futures = {executor.submit(process_chunk_parallel, batch): idx for idx, batch in enumerate(chunk_batches)}
             completed_count = 0
             completed_queries = 0
