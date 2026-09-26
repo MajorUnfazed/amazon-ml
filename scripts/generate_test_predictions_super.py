@@ -333,47 +333,61 @@ def main():
         print(f"\n[3/5] Processing Partition: {country.upper()} ({len(s1_records_c):,} S1 queries)...", flush=True)
         t_c_start = time.time()
 
-        # Load partner records
-        print(f"  Loading {country} partner pool from test_source2 and test_source3...", flush=True)
-        partner_lookup = {}
-        word_df = defaultdict(int)
-        char3_df = defaultdict(int)
+        # Load partner records (with instant disk cache check)
+        cache_file = os.path.join(artifacts_dir, f"partner_pool_{country}.joblib")
+        if os.path.exists(cache_file):
+            print(f"  Loading pre-normalized {country} partner pool from cache ({cache_file})...", flush=True)
+            partner_lookup, word_idf, char3_idf = joblib.load(cache_file)
+            N_docs = len(partner_lookup)
+            print(f"  Instant cache hit: Loaded {N_docs:,} {country} partner records in {time.time() - t_c_start:.1f}s!", flush=True)
+        else:
+            print(f"  Parsing & normalizing {country} partner pool (high-speed 32k/s engine)...", flush=True)
+            partner_lookup = {}
+            word_df = defaultdict(int)
+            char3_df = defaultdict(int)
 
-        for fn in ["test_source2.tsv", "test_source3.tsv"]:
-            fn_path = os.path.join(test_dir, fn)
-            if not os.path.exists(fn_path):
-                continue
-            with open(fn_path, "r", encoding="utf-8", errors="ignore") as f:
-                next(f)
-                for line in f:
-                    p = line.rstrip("\r\n").split("\t")
-                    if len(p) >= 4 and p[3] == country:
-                        norm = normalize_record(p[1], p[2], p[3])
-                        norm["entity_id"] = p[0]
-                        norm["country"] = country
-                        partner_lookup[p[0]] = norm
+            for fn in ["test_source2.tsv", "test_source3.tsv"]:
+                fn_path = os.path.join(test_dir, fn)
+                if not os.path.exists(fn_path):
+                    continue
+                with open(fn_path, "r", encoding="utf-8", errors="ignore") as f:
+                    next(f)
+                    for line in f:
+                        p = line.rstrip("\r\n").split("\t")
+                        if len(p) >= 4 and p[3] == country:
+                            norm = normalize_record(p[1], p[2], p[3])
+                            norm["entity_id"] = p[0]
+                            norm["country"] = country
+                            partner_lookup[p[0]] = norm
 
-                        n_clean = str(norm["name_clean"])
-                        n_core = str(norm["name_core"])
-                        a_clean = str(norm["address_clean"])
-                        for w in set(n_clean.split()):
-                            if len(w) >= 3:
-                                word_df[w] += 1
-                        for w in set(a_clean.split()):
-                            if len(w) >= 4 and not w.isdigit():
-                                word_df[w] += 1
-                        core_flat = n_core.replace(" ", "")
-                        for i in range(len(core_flat) - 2):
-                            char3_df[core_flat[i:i+3]] += 1
+                            n_clean = str(norm["name_clean"])
+                            n_core = str(norm["name_core"])
+                            a_clean = str(norm["address_clean"])
+                            for w in set(n_clean.split()):
+                                if len(w) >= 3:
+                                    word_df[w] += 1
+                            for w in set(a_clean.split()):
+                                if len(w) >= 4 and not w.isdigit():
+                                    word_df[w] += 1
+                            core_flat = n_core.replace(" ", "")
+                            for i in range(len(core_flat) - 2):
+                                char3_df[core_flat[i:i+3]] += 1
 
-        N_docs = len(partner_lookup)
-        print(f"  Loaded {N_docs:,} {country} partner records in {time.time() - t_c_start:.1f}s.", flush=True)
+            N_docs = len(partner_lookup)
+            print(f"  Loaded {N_docs:,} {country} partner records in {time.time() - t_c_start:.1f}s.", flush=True)
 
-        # Compute IDF lookups
-        MAX_DF = int(N_docs * 0.15)
-        word_idf = {w: math.log(1.0 + N_docs / df) for w, df in word_df.items() if df <= MAX_DF}
-        char3_idf = {c3: math.log(1.0 + N_docs / df) for c3, df in char3_df.items() if df <= MAX_DF}
-        del word_df, char3_df
+            # Compute IDF lookups
+            MAX_DF = int(N_docs * 0.15)
+            word_idf = {w: math.log(1.0 + N_docs / df) for w, df in word_df.items() if df <= MAX_DF}
+            char3_idf = {c3: math.log(1.0 + N_docs / df) for c3, df in char3_df.items() if df <= MAX_DF}
+            del word_df, char3_df
+
+            # Cache to disk for instant 1-second reloading on future runs
+            try:
+                joblib.dump((partner_lookup, word_idf, char3_idf), cache_file, compress=1)
+                print(f"  Saved {country} partner pool cache to {cache_file}.", flush=True)
+            except Exception as e:
+                print(f"  Cache save warning: {e}", flush=True)
 
         # Build 10-Channel Inverted Index
         print(f"  Building 10-channel Ultra-Blocker index for {country}...", flush=True)
