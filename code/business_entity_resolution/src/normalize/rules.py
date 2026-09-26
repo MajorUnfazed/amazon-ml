@@ -37,6 +37,21 @@ ALL_LEGAL_SUFFIXES = sorted(
     reverse=True
 )
 
+# Legal Prefixes (common in France: SARL, SAS, SCI, and India: M/S)
+LEGAL_PREFIXES = sorted([
+    "societe a responsabilite limitee",
+    "societe par actions simplifiee unipersonnelle",
+    "societe par actions simplifiee",
+    "societe anonyme",
+    "entreprise unipersonnelle a responsabilite limitee",
+    "societe civile immobiliere",
+    "societe en nom collectif",
+    "societe d exercice liberal",
+    "sarl", "sas", "sasu", "eurl", "sci", "snc", "sa", "selarl", "scs", "sca",
+    "ste", "societe", "ets", "etablissements", "cie", "compagnie",
+    "m s", "ms", "messrs"
+], key=lambda s: len(s), reverse=True)
+
 # Address Abbreviations
 ADDRESS_ABBREVIATIONS = {
     # English / US

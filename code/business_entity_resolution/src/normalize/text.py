@@ -5,6 +5,7 @@ import unicodedata
 from typing import Tuple, List, Optional, Dict, Any
 from .rules import (
     ALL_LEGAL_SUFFIXES,
+    LEGAL_PREFIXES,
     ADDRESS_ABBREVIATIONS,
     DBA_PATTERNS,
     LANDMARK_TRIGGERS
@@ -55,8 +56,8 @@ def clean_string(text: str) -> str:
 
 def extract_legal_suffix(name_clean: str) -> Tuple[str, str]:
     """
-    Identifies and strips legal business suffixes.
-    Returns (core_name, suffix).
+    Identifies and strips legal business suffixes AND prefixes (e.g. SARL, SAS, SCI, M/S).
+    Returns (core_name, affix).
     """
     if not name_clean:
         return "", ""
@@ -65,19 +66,33 @@ def extract_legal_suffix(name_clean: str) -> Tuple[str, str]:
     if not tokens:
         return "", ""
 
-    # Check multi-word and single-word suffixes from the end of the name
-    name_str = " " + name_clean + " "
-    matched_suffix = ""
+    core = name_clean
+    matched_affix = ""
 
+    # 1. Strip prefix if present (e.g. "sarl boulangerie dupont" -> "boulangerie dupont")
+    name_str = " " + core + " "
+    for prefix in LEGAL_PREFIXES:
+        pattern = r"^\s*" + re.escape(prefix) + r"\s+"
+        if re.search(pattern, name_str):
+            sub = re.sub(pattern, "", name_str).strip()
+            if len(sub) >= 2:
+                core = sub
+                matched_affix = prefix
+                break
+
+    # 2. Strip suffix if present (e.g. "dupont boulangerie sarl" -> "dupont boulangerie")
+    name_str = " " + core + " "
     for suffix in ALL_LEGAL_SUFFIXES:
         pattern = r"\s+" + re.escape(suffix) + r"\s*$"
         if re.search(pattern, name_str):
-            core = re.sub(pattern, "", name_str).strip()
-            # Ensure we don't reduce a name to empty string
-            if len(core) >= 2:
-                return core, suffix
+            sub = re.sub(pattern, "", name_str).strip()
+            if len(sub) >= 2:
+                core = sub
+                if not matched_affix:
+                    matched_affix = suffix
+                break
 
-    return name_clean, ""
+    return core, matched_affix
 
 def extract_dba_variants(raw_name: str) -> List[str]:
     """

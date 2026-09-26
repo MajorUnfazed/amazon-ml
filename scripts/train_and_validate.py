@@ -124,7 +124,9 @@ for country in s1_df["country"].unique():
         if len(slug) >= 4:
             slug_index[slug].append(pid)
 
-    # Candidate retrieval per S1
+    partner_id_set = set(c_p["entity_id"])
+
+    # Candidate retrieval per S1 with Hard Negative Mining
     for s1_id, n_clean, n_core, a_clean in zip(c_s1["entity_id"], c_s1["name_clean"], c_s1["name_core"], c_s1["address_clean"]):
         cand_scores = defaultdict(float)
 
@@ -141,9 +143,29 @@ for country in s1_df["country"].unique():
                 for pid in pids:
                     cand_scores[pid] += w
 
+        true_matches = sample_gt.get(s1_id, set())
+
+        # 1. Guaranteed True Positives: Ensure every true match in partner pool is included
+        for pid in true_matches:
+            if pid in partner_id_set:
+                pair_rows.append({
+                    "source1_entity_id": s1_id,
+                    "partner_entity_id": pid,
+                    "max_retriever_score": float(cand_scores.get(pid, 10.0)),
+                    "score_name_tfidf": float(cand_scores.get(pid, 10.0)) / 10.0,
+                    "score_name_addr_tfidf": 0.0,
+                    "score_addr_tfidf": 0.0,
+                    "score_postal_block": 0.0,
+                    "score_acronym_block": 0.0
+                })
+
+        # 2. Hard Negative Mining: Select top-15 highest scoring non-matching candidates
         if cand_scores:
-            top_cands = sorted(cand_scores.items(), key=lambda x: -x[1])[:50]
-            for pid, score in top_cands:
+            hard_negs = [
+                (pid, score) for pid, score in sorted(cand_scores.items(), key=lambda x: -x[1])
+                if pid not in true_matches
+            ][:15]
+            for pid, score in hard_negs:
                 pair_rows.append({
                     "source1_entity_id": s1_id,
                     "partner_entity_id": pid,
@@ -156,7 +178,9 @@ for country in s1_df["country"].unique():
                 })
 
 cands_df = pd.DataFrame(pair_rows)
-print(f"  Generated {len(cands_df):,} candidate pairs in {time.time() - t0:.2f}s.", flush=True)
+# Deduplicate any duplicate pairs
+cands_df = cands_df.drop_duplicates(subset=["source1_entity_id", "partner_entity_id"]).reset_index(drop=True)
+print(f"  Generated {len(cands_df):,} candidate pairs (Hard Negative Mined) in {time.time() - t0:.2f}s.", flush=True)
 
 # Blocking audit
 s1_list = s1_df["entity_id"].tolist()

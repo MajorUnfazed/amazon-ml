@@ -204,6 +204,14 @@ class FeatureBuilder:
             else:
                 feat["landmark_shared"] = 0.0
 
+            # 9. Hard Location Conflict and Agreement Signals (Precision Protectors)
+            feat["building_num_conflict"] = 1.0 if feat["building_num_match"] == -1.0 else 0.0
+            feat["postal_prefix_conflict"] = 1.0 if feat["postal_prefix_match"] == -1.0 else 0.0
+            # Both numbers and postal prefixes conflict: almost impossible to be the same business
+            feat["strong_location_conflict"] = 1.0 if (feat["building_num_match"] == -1.0 and feat["postal_prefix_match"] == -1.0) else 0.0
+            # Both numbers and postal codes agree: massive boost
+            feat["exact_location_agreement"] = 1.0 if (feat["building_num_match"] == 1.0 and feat["postal_match"] == 1.0) else 0.0
+
             feature_rows.append(feat)
 
         out_df = pd.DataFrame(feature_rows)
