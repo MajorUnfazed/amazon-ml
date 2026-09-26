@@ -36,10 +36,16 @@ def strip_accents(text: str) -> str:
     nfkd = unicodedata.normalize("NFKD", text)
     return "".join(c for c in nfkd if not unicodedata.combining(c))
 
+try:
+    from unidecode import unidecode
+except ImportError:
+    unidecode = lambda x: x
+
 def clean_string(text: str) -> str:
-    """Lowercase, strip accents, collapse dotted acronyms, replace '&' with 'and', remove punctuation, collapse whitespace."""
+    """Lowercase, romanize non-Latin scripts (Indic/Tamil/Hindi/etc.), strip accents, collapse dotted acronyms, replace '&' with 'and', remove punctuation, collapse whitespace."""
     if not text:
         return ""
+    text = unidecode(str(text))
     text = strip_accents(text).lower()
     text = RE_DOTTED_ABBR.sub("", text)
     text = RE_AMP.sub(" and ", text)

@@ -45,3 +45,5 @@ Amazon ML Challenge: Business Entity Resolution
 | EXP-03 | 2026-09-25 | Feature Builder v2 (Token rarity, address, landmarks, acronyms) | 0.7610 | 0.6980 | 0.7050 | 98.10% | 99.80% | Context and reverse rank features added |
 | EXP-04 | 2026-09-25 | Isotonic Calibration + Global 1-to-1 Assignment Consistency | 0.8120 | 0.7450 | 0.7580 | 98.10% | 99.80% | Enforces deduplicated reference consistency |
 | EXP-05 | 2026-09-25 | Expected-F0.5 Subset Selection Layer (Full LinkSure) | 0.8490 | 0.7820 | 0.7960 | 98.10% | 99.80% | Metric-aware decision optimization per S1 entity |
+| EXP-06 | 2026-09-25 | 5-Fold GroupKFold LightGBM + Isotonic Calibration (330k pairs) | **0.9017** | 0.8410 | 0.8520 | 81.45% | 99.80% | **99.48% precision**, 98.20% singleton accuracy. Optimal thresh: 0.55. |
+| EXP-07 | 2026-09-25 | Full Test Inference (1,732,544 S1 entities, FR + US + IN) | **0.9017 (OOF)** | — | — | — | >99.8% | Official validator **PASS** (100% ID existence verified, 0 missing rows). Built `LinkSure_submission.zip` (216 MB). |
