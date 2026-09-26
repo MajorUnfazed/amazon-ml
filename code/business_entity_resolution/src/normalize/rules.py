@@ -74,6 +74,14 @@ ADDRESS_ABBREVIATIONS = {
     r"\bctr\b": "center",
     r"\bsq\b": "square",
     r"\bterr\b": "terrace",
+    r"\bn\b": "north",
+    r"\bs\b": "south",
+    r"\be\b": "east",
+    r"\bw\b": "west",
+    r"\bne\b": "northeast",
+    r"\bnw\b": "northwest",
+    r"\bse\b": "southeast",
+    r"\bsw\b": "southwest",
     # India
     r"\bopp\b": "opposite",
     r"\bnr\b": "near",
@@ -82,6 +90,13 @@ ADDRESS_ABBREVIATIONS = {
     r"\bbh\b": "behind",
     r"\bext\b": "extension",
     r"\bmkt\b": "market",
+    r"\bsalai\b": "road",
+    r"\bmarg\b": "road",
+    r"\brasta\b": "road",
+    r"\bgali\b": "lane",
+    r"\bchowk\b": "square",
+    r"\bbazar\b": "market",
+    r"\bbazaar\b": "market",
     # France
     r"\br\.\b": "rue",
     r"\br\b": "rue",
@@ -94,6 +109,9 @@ ADDRESS_ABBREVIATIONS = {
     r"\bimp\b": "impasse",
     r"\brte\b": "route",
     r"\bfaub\b": "faubourg",
+    r"\bcours\b": "cours",
+    r"\bquai\b": "quai",
+    r"\bpass\b": "passage",
     r"\bz\.?i\.?\b": "zone industrielle",
     r"\bz\.?a\.?\b": "zone activite"
 }

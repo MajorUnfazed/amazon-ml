@@ -35,7 +35,7 @@ print("LinkSure: Model Training & Validation Protocol", flush=True)
 print("=" * 70, flush=True)
 
 # 1. Fast load of ground truth and corresponding S1 entities
-N_TARGET_S1 = 100000
+N_TARGET_S1 = 150000
 print(f"\n[1/6] Loading {N_TARGET_S1:,} training S1 entities and ground truth...", flush=True)
 t0 = time.time()
 
@@ -89,7 +89,7 @@ for fn in ["train_source2.tsv", "train_source3.tsv"]:
         for line in f:
             p = line.rstrip("\r\n").split("\t")
             pid = p[0]
-            if pid in target_partners or (len(found_partners) < 500000 and random.random() < 0.50):
+            if pid in target_partners or (len(found_partners) < 750000 and random.random() < 0.50):
                 found_partners[pid] = (p[1], p[2], p[3])
 
 partner_records = []

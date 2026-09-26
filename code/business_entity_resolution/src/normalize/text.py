@@ -169,12 +169,25 @@ FAST_ABBR_MAP = {
     "blvd": "boulevard", "bvd": "boulevard", "dr": "drive", "ln": "lane",
     "ct": "court", "pl": "place", "pkwy": "parkway", "hwy": "highway",
     "apt": "apartment", "ste": "suite", "bldg": "building", "fl": "floor",
-    "ctr": "center", "sq": "square",
-    "mkt": "market", "opp": "opposite", "nr": "near", "extn": "extension",
+    "ctr": "center", "sq": "square", "terr": "terrace",
+    "n": "north", "s": "south", "e": "east", "w": "west",
+    "ne": "northeast", "nw": "northwest", "se": "southeast", "sw": "southwest",
+    "mkt": "market", "opp": "opposite", "nr": "near", "extn": "extension", "ext": "extension",
     "col": "colony", "soc": "society",
-    "bd": "boulevard", "bvd": "boulevard", "r": "rue", "pl": "place",
-    "chem": "chemin", "rte": "route", "all": "allee", "faub": "faubourg"
+    "salai": "road", "marg": "road", "rasta": "road", "gali": "lane",
+    "chowk": "square", "bazar": "market", "bazaar": "market",
+    "bd": "boulevard", "r": "rue", "chem": "chemin", "rte": "route", "all": "allee", "faub": "faubourg",
+    "cours": "cours", "quai": "quai", "pass": "passage"
 }
+
+RE_PHONE = re.compile(r"\b(?:ph|tel|mob|phone)?[:.\s]*([6-9]\d{9}|\d{3}[-.\s]?\d{3}[-.\s]?\d{4})\b", re.IGNORECASE)
+
+def extract_phone_numbers(address: str) -> List[str]:
+    """Extracts 10-digit mobile/landline numbers from address strings."""
+    if not address:
+        return []
+    matches = RE_PHONE.findall(str(address))
+    return [re.sub(r"\D", "", m) for m in matches if len(re.sub(r"\D", "", m)) >= 10]
 
 def clean_address(address: str) -> str:
     """Cleans address string and expands street and locality abbreviations."""
@@ -237,5 +250,6 @@ def normalize_record(name: str, address: str, country: str) -> Dict[str, Any]:
         "address_clean": address_clean,
         "postal_code": postal_code,
         "building_numbers": building_numbers,
-        "landmarks": landmarks
+        "landmarks": landmarks,
+        "phone_numbers": extract_phone_numbers(address)
     }

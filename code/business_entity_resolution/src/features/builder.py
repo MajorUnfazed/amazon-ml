@@ -118,6 +118,21 @@ class FeatureBuilder:
             # Source origin
             feat["is_source2"] = 1.0 if str(p_id).startswith("S2-") else 0.0
 
+            # Exact Equality Indicators
+            feat["is_name_exact"] = 1.0 if s1_clean and p_clean and (s1_clean == p_clean) else 0.0
+            feat["is_core_exact"] = 1.0 if s1_core and p_core and (s1_core == p_core) else 0.0
+            feat["is_addr_exact"] = 1.0 if s1_addr and p_addr and (s1_addr == p_addr) else 0.0
+
+            # Brand First Token Match (first word is primary brand name)
+            s1_toks = s1_core.split()
+            p_toks = p_core.split()
+            if s1_toks and p_toks:
+                feat["brand_first_token_match"] = 1.0 if s1_toks[0] == p_toks[0] else 0.0
+                feat["brand_first_token_sim"] = float(distance.JaroWinkler.similarity(s1_toks[0], p_toks[0]))
+            else:
+                feat["brand_first_token_match"] = 0.0
+                feat["brand_first_token_sim"] = 0.0
+
             # 2. Name string similarities (Clean name)
             feat["name_clean_jaro_winkler"] = float(distance.JaroWinkler.similarity(s1_clean, p_clean))
             feat["name_clean_levenshtein"] = float(fuzz.ratio(s1_clean, p_clean) / 100.0)
@@ -191,11 +206,13 @@ class FeatureBuilder:
                 feat["postal_match"] = 0.0
                 feat["postal_prefix_match"] = 0.0
 
-            # 7. Building number match
+            # 7. Building number match & numeric Jaccard
             if s1_nums and p_nums:
                 feat["building_num_match"] = 1.0 if (s1_nums & p_nums) else -1.0
+                feat["building_num_jaccard"] = float(len(s1_nums & p_nums) / len(s1_nums | p_nums))
             else:
                 feat["building_num_match"] = 0.0
+                feat["building_num_jaccard"] = 0.0
 
             # 8. Landmark match
             if s1_lms or p_lms:
@@ -211,6 +228,11 @@ class FeatureBuilder:
             feat["strong_location_conflict"] = 1.0 if (feat["building_num_match"] == -1.0 and feat["postal_prefix_match"] == -1.0) else 0.0
             # Both numbers and postal codes agree: massive boost
             feat["exact_location_agreement"] = 1.0 if (feat["building_num_match"] == 1.0 and feat["postal_match"] == 1.0) else 0.0
+
+            # 10. Phone Number Exact Overlap
+            s1_phones = set(s1.get("phone_numbers", []))
+            p_phones = set(p.get("phone_numbers", []))
+            feat["phone_number_match"] = 1.0 if (s1_phones and p_phones and (s1_phones & p_phones)) else 0.0
 
             feature_rows.append(feat)
 

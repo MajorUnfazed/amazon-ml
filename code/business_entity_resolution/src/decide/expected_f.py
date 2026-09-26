@@ -59,23 +59,35 @@ def decide_expected_f05(
     all_s1_ids: List[str],
     prob_col: str = "p_cal",
     max_k: int = 8,
-    n_samples: int = 250
+    n_samples: int = 150
 ) -> Dict[str, Set[str]]:
     """
     Applies Expected-F0.5 set selection per Source 1 entity across the dataset.
+    Vectorized dictionary grouping for maximum throughput on multi-million row tables.
     """
     predictions = {s1: set() for s1 in all_s1_ids}
     if len(scored_pairs_df) == 0:
         return predictions
 
-    grouped = scored_pairs_df.groupby("source1_entity_id")
-    for s1_id, group in grouped:
-        cands = group["partner_entity_id"].tolist()
-        probs = group[prob_col].tolist()
+    from collections import defaultdict
+    cand_map = defaultdict(list)
+    prob_map = defaultdict(list)
+
+    s1_vals = scored_pairs_df["source1_entity_id"].values
+    p_vals = scored_pairs_df["partner_entity_id"].values
+    pr_vals = scored_pairs_df[prob_col].values
+
+    for s1, p, pr in zip(s1_vals, p_vals, pr_vals):
+        cand_map[s1].append(p)
+        prob_map[s1].append(float(pr))
+
+    for s1_id, cands in cand_map.items():
+        probs = prob_map[s1_id]
         pred_set = select_expected_f05_subset(
             cands, probs, max_k=max_k, n_samples=n_samples
         )
-        predictions[s1_id] = pred_set
+        if pred_set:
+            predictions[s1_id] = pred_set
 
     return predictions
 
