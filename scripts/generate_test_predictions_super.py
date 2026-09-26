@@ -330,6 +330,20 @@ def main():
         if not s1_records_c:
             continue
 
+        # Checkpoint check: if this country was already processed, load and skip!
+        m_ckpt = os.path.join(artifacts_dir, f"matches_{country}.joblib")
+        c_ckpt = os.path.join(artifacts_dir, f"cands_{country}.joblib")
+        if os.path.exists(m_ckpt) and os.path.exists(c_ckpt):
+            print(f"\n[3/5] Partition {country.upper()} already completed! Loading checkpoint...", flush=True)
+            c_matches = joblib.load(m_ckpt)
+            c_cands = joblib.load(c_ckpt)
+            for eid, m in c_matches.items():
+                if m: final_matches_dict[eid] = m
+            for eid, c in c_cands.items():
+                if c: final_candidates_dict[eid] = c
+            print(f"  Instant checkpoint loaded for {country} ({len(c_matches):,} records).", flush=True)
+            continue
+
         print(f"\n[3/5] Processing Partition: {country.upper()} ({len(s1_records_c):,} S1 queries)...", flush=True)
         t_c_start = time.time()
 
@@ -483,12 +497,14 @@ def main():
         n_chunks = (len(s1_records_c) + CHUNK_SIZE - 1) // CHUNK_SIZE
         chunk_batches = [s1_records_c[i * CHUNK_SIZE: min((i + 1) * CHUNK_SIZE, len(s1_records_c))] for i in range(n_chunks)]
 
-        print(f"  Launching {n_workers} parallel workers over {len(chunk_batches)} batches ({CHUNK_SIZE} queries/batch)...", flush=True)
+        # Adaptive worker scaling: For massive partitions (US/India > 2.5M docs), 10 workers guarantee 50GB+ free RAM
+        country_workers = 10 if N_docs > 2500000 else 20
+        print(f"  Launching {country_workers} parallel workers over {len(chunk_batches)} batches ({CHUNK_SIZE} queries/batch)...", flush=True)
         t_par = time.time()
         all_scored_pairs = []
 
         # Execute chunks in parallel with ZERO IPC serialization (pure Linux fork COW memory)
-        with ProcessPoolExecutor(max_workers=n_workers) as executor:
+        with ProcessPoolExecutor(max_workers=country_workers) as executor:
             futures = {executor.submit(process_chunk_parallel, batch): idx for idx, batch in enumerate(chunk_batches)}
             completed_count = 0
             completed_queries = 0
@@ -557,6 +573,16 @@ def main():
                         n_multi += 1
 
             print(f"  {country} matched entities: {n_matched:,} / {len(s1_records_c):,} ({n_matched/len(s1_records_c):.1%}) | Multi-matches: {n_multi:,}", flush=True)
+
+            # Save country checkpoint to disk immediately
+            try:
+                c_matches = {eid: final_matches_dict[eid] for eid, _, _ in s1_records_c if eid in final_matches_dict}
+                c_cands = {eid: final_candidates_dict[eid] for eid, _, _ in s1_records_c if eid in final_candidates_dict}
+                joblib.dump(c_matches, os.path.join(artifacts_dir, f"matches_{country}.joblib"))
+                joblib.dump(c_cands, os.path.join(artifacts_dir, f"cands_{country}.joblib"))
+                print(f"  Saved partition {country} checkpoint to artifacts/.", flush=True)
+            except Exception as e:
+                print(f"  Checkpoint save warning: {e}", flush=True)
 
         print(f"  Partition {country} finished in {time.time() - t_c_start:.1f}s.", flush=True)
 
