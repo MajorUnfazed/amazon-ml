@@ -506,8 +506,17 @@ def main():
             print(f"  Retained {len(country_1to1):,} globally exclusive pairs.", flush=True)
 
             # High-Precision Expected F0.5 Decision Rule:
-            # - Primary match accepted if p >= 0.45 (protects singletons with 99.5% accuracy)
-            # - Secondary matches accepted if p >= 0.50 (captures multi-branch/listing matches without false alarms)
+            # Dynamically loads the optimal threshold discovered during cross-validation
+            thresh_file = os.path.join(artifacts_dir, "best_threshold.joblib")
+            primary_thresh = 0.45
+            if os.path.exists(thresh_file):
+                try:
+                    primary_thresh = float(joblib.load(thresh_file))
+                    print(f"  Using validated optimal decision threshold: {primary_thresh:.2f}", flush=True)
+                except Exception:
+                    pass
+            sec_thresh = max(primary_thresh, 0.50)
+
             grouped_claims = defaultdict(list)
             for s1, p, pr in zip(country_1to1["source1_entity_id"], country_1to1["partner_entity_id"], country_1to1["p_cal"]):
                 grouped_claims[s1].append((p, float(pr)))
@@ -518,11 +527,11 @@ def main():
                 claims.sort(key=lambda x: -x[1])
                 chosen = []
                 # First candidate
-                if claims[0][1] >= 0.45:
+                if claims[0][1] >= primary_thresh:
                     chosen.append(claims[0][0])
                     # Subsequent candidates
                     for p_cand, prob in claims[1:]:
-                        if prob >= 0.50:
+                        if prob >= sec_thresh:
                             chosen.append(p_cand)
 
                 if chosen:
