@@ -248,7 +248,7 @@ for country in countries_to_process:
                         cand_scores[pid] += 5.0
 
             if cand_scores:
-                top_cands = heapq.nlargest(25, cand_scores.items(), key=lambda x: x[1])
+                top_cands = heapq.nlargest(40, cand_scores.items(), key=lambda x: x[1])
                 for pid, score in top_cands:
                     pair_rows.append({
                         "source1_entity_id": s1_id,
@@ -298,11 +298,20 @@ for country in countries_to_process:
         country_scored_df = pd.concat(country_scored_chunks, ignore_index=True)
         country_1to1 = resolve_one_to_one(country_scored_df, prob_col="p_cal")
 
-        passing = country_1to1[country_1to1["p_cal"] >= DECISION_THRESHOLD]
-        for s1_id, p_id in zip(passing["source1_entity_id"], passing["partner_entity_id"]):
-            final_matches_dict[s1_id].append(p_id)
+        # Use Expected-F0.5 metric-aware decision layer instead of raw threshold
+        from decide.expected_f import decide_expected_f05
+        all_s1_ids_country = [eid for eid, _, _ in s1_records_c]
+        country_predictions = decide_expected_f05(
+            country_1to1, all_s1_ids_country,
+            prob_col="p_cal", max_k=8, n_samples=500
+        )
+        n_matched = 0
+        for s1_id, match_set in country_predictions.items():
+            if match_set:
+                final_matches_dict[s1_id] = list(match_set)
+                n_matched += 1
 
-        print(f"  {country} matched links: {len(passing):,}", flush=True)
+        print(f"  {country} matched links: {n_matched:,} entities with at least one match", flush=True)
 
     print(f"  {country} completed in {time.time() - t_c_start:.1f}s.", flush=True)
 

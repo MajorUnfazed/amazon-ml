@@ -35,7 +35,7 @@ print("LinkSure: Model Training & Validation Protocol", flush=True)
 print("=" * 70, flush=True)
 
 # 1. Fast load of ground truth and corresponding S1 entities
-N_TARGET_S1 = 10000
+N_TARGET_S1 = 100000
 print(f"\n[1/6] Loading {N_TARGET_S1:,} training S1 entities and ground truth...", flush=True)
 t0 = time.time()
 
@@ -89,7 +89,7 @@ for fn in ["train_source2.tsv", "train_source3.tsv"]:
         for line in f:
             p = line.rstrip("\r\n").split("\t")
             pid = p[0]
-            if pid in target_partners or (len(found_partners) < 120000 and random.random() < 0.15):
+            if pid in target_partners or (len(found_partners) < 500000 and random.random() < 0.50):
                 found_partners[pid] = (p[1], p[2], p[3])
 
 partner_records = []
@@ -136,13 +136,13 @@ for country in s1_df["country"].unique():
         toks = set(str(n_clean).split() + str(a_clean).split()[:3])
         for t in toks:
             pids = token_index.get(t, [])
-            if 0 < len(pids) <= 300:
+            if 0 < len(pids) <= 500:
                 w = 3.0 if t in str(n_clean) else 1.0
                 for pid in pids:
                     cand_scores[pid] += w
 
         if cand_scores:
-            top_cands = sorted(cand_scores.items(), key=lambda x: -x[1])[:35]
+            top_cands = sorted(cand_scores.items(), key=lambda x: -x[1])[:50]
             for pid, score in top_cands:
                 pair_rows.append({
                     "source1_entity_id": s1_id,
@@ -203,16 +203,18 @@ params = {
     "objective": "binary",
     "metric": "binary_logloss",
     "boosting_type": "gbdt",
-    "learning_rate": 0.05,
-    "num_leaves": 31,
+    "learning_rate": 0.03,
+    "num_leaves": 127,
     "max_depth": -1,
-    "min_child_samples": 20,
-    "subsample": 0.8,
-    "colsample_bytree": 0.8,
-    "n_estimators": 300,
+    "min_child_samples": 50,
+    "subsample": 0.7,
+    "colsample_bytree": 0.7,
+    "n_estimators": 1000,
     "random_state": 42,
     "n_jobs": -1,
-    "verbose": -1
+    "verbose": -1,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0
 }
 
 for fold, (train_idx, val_idx) in enumerate(gkf.split(X, y, groups=groups), 1):
@@ -251,7 +253,7 @@ features_1to1 = resolve_one_to_one(features_df, prob_col="p_cal")
 best_f05 = 0.0
 best_thresh = 0.45
 
-for thresh in [0.35, 0.40, 0.45, 0.50, 0.55]:
+for thresh in [0.35, 0.40, 0.45, 0.50, 0.55, 0.58, 0.60, 0.65, 0.70]:
     preds = decide_global_threshold(features_1to1, s1_list, prob_col="p_cal", threshold=thresh)
     res = evaluate_predictions(sample_gt, preds)
     print(f"  1-to-1 + Thresh {thresh:.2f}: Macro F0.5 = {res['macro_f05']:.4f} (Prec = {res['mean_precision']:.4f}, Rec = {res['mean_recall']:.4f}, Sing Acc = {res['singleton_accuracy']:.2%})", flush=True)
