@@ -448,30 +448,16 @@ def main():
         max_posting_c3 = max(int(N_docs * 0.01), 4000)
         max_posting_sx = max(int(N_docs * 0.01), 3000)
 
-        # Set global variables directly in parent process for true Linux zero-copy Copy-On-Write
-        _G_PARTNER_LOOKUP = partner_lookup
-        _G_SLUG_INDEX = slug_index
-        _G_SORTED_SLUG_INDEX = sorted_slug_index
-        _G_ADDR_KEY_INDEX = addr_key_index
-        _G_PHONE_INDEX = phone_index
-        _G_SOUNDEX_INDEX = soundex_index
-        _G_ACRONYM_INDEX = acronym_index
-        _G_WORD_INDEX = word_index
-        _G_CHAR3_INDEX = char3_index
-        _G_POSTAL_INDEX = postal_index
-        _G_WORD_IDF = word_idf
-        _G_CHAR3_IDF = char3_idf
-        _G_MAX_POST_WORD = max_posting_word
-        _G_MAX_POST_ADDR = max_posting_addr
-        _G_MAX_POST_C3 = max_posting_c3
-        _G_MAX_POST_SX = max_posting_sx
-        _G_FEATURE_BUILDER = fb
         # Explicitly lock LightGBM to 1 thread per worker process to prevent thread thrashing
         model.set_params(n_jobs=1)
-        _G_MODEL = model
-        _G_CALIBRATOR = calibrator
-        _G_FEATURE_COLS = feature_cols
-        _G_COUNTRY = country
+
+        # Set module-level globals directly in parent process so Linux fork() child processes inherit them via Copy-On-Write
+        init_worker_state(
+            partner_lookup, slug_index, sorted_slug_index, addr_key_index, phone_index,
+            soundex_index, acronym_index, word_index, char3_index, postal_index,
+            word_idf, char3_idf, max_posting_word, max_posting_addr, max_posting_c3, max_posting_sx,
+            fb, model, calibrator, feature_cols, country
+        )
 
         # Freeze garbage collector so Linux fork shared memory stays clean and zero-copy
         gc.collect()
